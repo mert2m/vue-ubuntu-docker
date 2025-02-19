@@ -24,9 +24,7 @@ services:
     networks:
       - app-network
     volumes:
-      - ./docker/nginx/ssl/nginx-selfsigned.crt:/etc/nginx/ssl/nginx-selfsigned.crt:ro
-      - ./docker/nginx/ssl/nginx-selfsigned.key:/etc/nginx/ssl/nginx-selfsigned.key:ro
-      - ./docker/nginx/ssl/dhparam.pem:/etc/nginx/ssl/dhparam.pem:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl
 
 networks:
   app-network:
