@@ -105,34 +105,55 @@ check_requirements() {
 
 # Function to generate SSL certificates
 generate_ssl_certificates() {
-    log "Generating SSL certificates..."
+    log "Setting up SSL certificates..."
     
+    # Define SSL directory
     SSL_DIR="./docker/nginx/ssl"
-    mkdir -p $SSL_DIR
     
-    # Generate certificates only if they don't exist
-    if [ ! -f "$SSL_DIR/nginx-selfsigned.crt" ] || [ ! -f "$SSL_DIR/nginx-selfsigned.key" ] || [ ! -f "$SSL_DIR/dhparam.pem" ]; then
-        log "SSL certificates not found, generating new ones..."
-        
-        openssl req -x509 \
-            -nodes \
-            -days 365 \
-            -newkey rsa:2048 \
-            -keyout $SSL_DIR/nginx-selfsigned.key \
-            -out $SSL_DIR/nginx-selfsigned.crt \
-            -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
-        
-        openssl dhparam -out $SSL_DIR/dhparam.pem 2048
-        
-        # Set proper permissions
-        chmod 644 $SSL_DIR/nginx-selfsigned.crt
-        chmod 600 $SSL_DIR/nginx-selfsigned.key
-        chmod 644 $SSL_DIR/dhparam.pem
-        
-        log "SSL certificates generated successfully ✓"
-    else
-        log "SSL certificates already exist, skipping generation ✓"
+    # Ensure the SSL directory exists and we have write permissions
+    sudo rm -rf "$SSL_DIR"
+    mkdir -p "$SSL_DIR"
+    
+    # Generate SSL certificate and key
+    log "Generating SSL certificate and key..."
+    if ! openssl req -x509 \
+        -nodes \
+        -days 365 \
+        -newkey rsa:2048 \
+        -keyout "$SSL_DIR/nginx-selfsigned.key" \
+        -out "$SSL_DIR/nginx-selfsigned.crt" \
+        -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"; then
+        log "Error: Failed to generate SSL certificate!"
+        exit 1
     fi
+    
+    # Set correct ownership and permissions
+    log "Setting correct permissions..."
+    sudo chown -R $USER:$USER "$SSL_DIR"
+    chmod 755 "$SSL_DIR"
+    chmod 644 "$SSL_DIR/nginx-selfsigned.crt"
+    chmod 600 "$SSL_DIR/nginx-selfsigned.key"
+    
+    # Verify files exist and have correct permissions
+    if [ ! -f "$SSL_DIR/nginx-selfsigned.crt" ]; then
+        log "Error: SSL certificate file not found!"
+        exit 1
+    fi
+    
+    if [ ! -f "$SSL_DIR/nginx-selfsigned.key" ]; then
+        log "Error: SSL key file not found!"
+        exit 1
+    fi
+    
+    # Verify certificate is valid
+    if ! openssl x509 -in "$SSL_DIR/nginx-selfsigned.crt" -noout -text > /dev/null; then
+        log "Error: Invalid SSL certificate!"
+        exit 1
+    fi
+    
+    log "SSL certificates generated and configured successfully ✓"
+    log "Certificate location: $SSL_DIR/nginx-selfsigned.crt"
+    log "Private key location: $SSL_DIR/nginx-selfsigned.key"
 }
 
 # Function to clean up on error
@@ -154,6 +175,7 @@ main() {
     DOCKER_COMPOSE_CMD=$(get_docker_compose_cmd)
     log "Using Docker Compose command: $DOCKER_COMPOSE_CMD"
 
+    # Generate SSL certificates
     generate_ssl_certificates
 
     log "Stopping any existing containers..."
