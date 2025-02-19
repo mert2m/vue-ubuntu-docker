@@ -20,6 +20,31 @@ get_docker_compose_cmd() {
     fi
 }
 
+# Function to verify Docker permissions
+verify_docker_permissions() {
+    # Check if user is in docker group
+    if ! groups | grep -q docker; then
+        log "Adding user to docker group..."
+        sudo usermod -aG docker $USER
+        log "⚠️  Please log out and log back in for the group changes to take effect"
+        log "After logging back in, run this script again"
+        exit 0
+    fi
+
+    # Test Docker access
+    if ! docker info &>/dev/null; then
+        log "Testing Docker access with sudo..."
+        if ! sudo docker info &>/dev/null; then
+            log "Error: Cannot access Docker daemon. Please ensure Docker is running"
+            exit 1
+        else
+            log "⚠️  Docker daemon is accessible only with sudo"
+            log "Please log out and log back in for group changes to take effect"
+            exit 1
+        fi
+    fi
+}
+
 # Function to install Docker and Docker Compose
 install_docker() {
     log "Installing Docker and Docker Compose..."
@@ -43,6 +68,9 @@ install_docker() {
     sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
 
     log "Docker and Docker Compose installed successfully! ✓"
+    log "⚠️  Please log out and log back in for the group changes to take effect"
+    log "After logging back in, run this script again"
+    exit 0
 }
 
 # Function to check system requirements
@@ -64,10 +92,8 @@ check_requirements() {
         install_docker
     fi
 
-    if ! docker info &> /dev/null; then
-        log "Docker daemon is not running. Starting Docker..."
-        sudo systemctl start docker
-    fi
+    # Verify Docker permissions
+    verify_docker_permissions
 
     if ! command -v openssl &> /dev/null; then
         log "Error: OpenSSL is not installed. Installing now..."
@@ -84,17 +110,29 @@ generate_ssl_certificates() {
     SSL_DIR="./docker/nginx/ssl"
     mkdir -p $SSL_DIR
     
-    openssl req -x509 \
-        -nodes \
-        -days 365 \
-        -newkey rsa:2048 \
-        -keyout $SSL_DIR/nginx-selfsigned.key \
-        -out $SSL_DIR/nginx-selfsigned.crt \
-        -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
-    
-    openssl dhparam -out $SSL_DIR/dhparam.pem 2048
-    
-    log "SSL certificates generated successfully ✓"
+    # Generate certificates only if they don't exist
+    if [ ! -f "$SSL_DIR/nginx-selfsigned.crt" ] || [ ! -f "$SSL_DIR/nginx-selfsigned.key" ] || [ ! -f "$SSL_DIR/dhparam.pem" ]; then
+        log "SSL certificates not found, generating new ones..."
+        
+        openssl req -x509 \
+            -nodes \
+            -days 365 \
+            -newkey rsa:2048 \
+            -keyout $SSL_DIR/nginx-selfsigned.key \
+            -out $SSL_DIR/nginx-selfsigned.crt \
+            -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
+        
+        openssl dhparam -out $SSL_DIR/dhparam.pem 2048
+        
+        # Set proper permissions
+        chmod 644 $SSL_DIR/nginx-selfsigned.crt
+        chmod 600 $SSL_DIR/nginx-selfsigned.key
+        chmod 644 $SSL_DIR/dhparam.pem
+        
+        log "SSL certificates generated successfully ✓"
+    else
+        log "SSL certificates already exist, skipping generation ✓"
+    fi
 }
 
 # Function to clean up on error
