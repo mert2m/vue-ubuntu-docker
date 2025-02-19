@@ -1,6 +1,5 @@
 FROM ubuntu:22.04
 
-# Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Node.js 18.x and other dependencies
@@ -9,8 +8,12 @@ RUN apt-get update && apt-get install -y \
     git \
     && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
     && apt-get install -y nodejs \
+    && npm install -g npm@latest \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Verify Node.js version
+RUN node --version | grep -q "^v18" || (echo "Node.js 18.x is required" && exit 1)
 
 # Create app directory
 WORKDIR /app
