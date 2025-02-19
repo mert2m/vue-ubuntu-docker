@@ -34,9 +34,9 @@ install_docker() {
     sudo usermod -aG docker $USER
 
     # Install Docker Compose
-    sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-    sudo chmod +x /usr/local/bin/docker-compose
-    sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+    sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker compose
+    sudo chmod +x /usr/local/bin/docker compose
+    sudo ln -s /usr/local/bin/docker compose /usr/bin/docker compose
 
     log "Docker and Docker Compose installed successfully! ✓"
 }
@@ -49,7 +49,7 @@ check_requirements() {
     if [[ "$(uname)" != "Linux" && "$(uname)" != "Darwin" ]]; then
         log "Error: This script is designed to run on Linux or macOS systems"
         exit 1
-    }
+    fi
 
     # Check if Docker is installed
     if ! command -v docker &> /dev/null; then
@@ -58,7 +58,7 @@ check_requirements() {
     fi
 
     # Check if Docker Compose is installed
-    if ! command -v docker-compose &> /dev/null; then
+    if ! command -v docker compose &> /dev/null; then
         log "Docker Compose is not installed. Installing now..."
         install_docker
     fi
@@ -106,7 +106,7 @@ generate_ssl_certificates() {
 # Function to clean up on error
 cleanup() {
     log "Error occurred. Cleaning up..."
-    docker-compose down --remove-orphans &> /dev/null || true
+    docker compose down --remove-orphans &> /dev/null || true
     exit 1
 }
 
@@ -125,15 +125,15 @@ main() {
 
     # Stop any existing containers
     log "Stopping any existing containers..."
-    docker-compose down --remove-orphans &> /dev/null || true
+    docker compose down --remove-orphans &> /dev/null || true
 
     # Build and start containers
     log "Building and starting containers..."
-    docker-compose up --build -d
+    docker compose up --build -d
 
     # Verify containers are running
     log "Verifying containers..."
-    if ! docker-compose ps | grep -q "Up"; then
+    if ! docker compose ps | grep -q "Up"; then
         log "Error: Containers failed to start properly"
         cleanup
     fi
@@ -142,7 +142,7 @@ main() {
     log "You can access:"
     log "- VueJS documentation at https://localhost (HTTPS)"
     log "- Development server at http://localhost:4000"
-    log "- Logs can be viewed with: docker-compose logs -f"
+    log "- Logs can be viewed with: docker compose logs -f"
     log "Note: Since we're using a self-signed certificate, you may need to accept the security warning in your browser."
 }
 
