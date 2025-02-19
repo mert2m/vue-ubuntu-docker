@@ -107,53 +107,41 @@ check_requirements() {
 generate_ssl_certificates() {
     log "Setting up SSL certificates..."
     
-    # Define SSL directory
-    SSL_DIR="./docker/nginx/ssl"
+    # Define SSL directory and current directory
+    CURRENT_DIR=$(pwd)
+    SSL_DIR="$CURRENT_DIR/../docker/nginx/ssl"
     
-    # Ensure the SSL directory exists and we have write permissions
-    sudo rm -rf "$SSL_DIR"
+    # Clean and create SSL directory
+    log "Creating SSL directory..."
+    rm -rf "$SSL_DIR"
     mkdir -p "$SSL_DIR"
     
     # Generate SSL certificate and key
     log "Generating SSL certificate and key..."
-    if ! openssl req -x509 \
+    cd "$SSL_DIR"
+    
+    openssl req -x509 \
         -nodes \
         -days 365 \
         -newkey rsa:2048 \
-        -keyout "$SSL_DIR/nginx-selfsigned.key" \
-        -out "$SSL_DIR/nginx-selfsigned.crt" \
-        -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"; then
-        log "Error: Failed to generate SSL certificate!"
+        -keyout nginx-selfsigned.key \
+        -out nginx-selfsigned.crt \
+        -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
+    
+    # Verify certificate was created
+    if [ ! -f "nginx-selfsigned.crt" ] || [ ! -f "nginx-selfsigned.key" ]; then
+        log "Failed to generate SSL certificate files!"
         exit 1
     fi
     
-    # Set correct ownership and permissions
-    log "Setting correct permissions..."
-    sudo chown -R $USER:$USER "$SSL_DIR"
-    chmod 755 "$SSL_DIR"
-    chmod 644 "$SSL_DIR/nginx-selfsigned.crt"
-    chmod 600 "$SSL_DIR/nginx-selfsigned.key"
+    # Set permissions
+    chmod 644 nginx-selfsigned.crt
+    chmod 600 nginx-selfsigned.key
     
-    # Verify files exist and have correct permissions
-    if [ ! -f "$SSL_DIR/nginx-selfsigned.crt" ]; then
-        log "Error: SSL certificate file not found!"
-        exit 1
-    fi
+    # Return to original directory
+    cd "$CURRENT_DIR"
     
-    if [ ! -f "$SSL_DIR/nginx-selfsigned.key" ]; then
-        log "Error: SSL key file not found!"
-        exit 1
-    fi
-    
-    # Verify certificate is valid
-    if ! openssl x509 -in "$SSL_DIR/nginx-selfsigned.crt" -noout -text > /dev/null; then
-        log "Error: Invalid SSL certificate!"
-        exit 1
-    fi
-    
-    log "SSL certificates generated and configured successfully ✓"
-    log "Certificate location: $SSL_DIR/nginx-selfsigned.crt"
-    log "Private key location: $SSL_DIR/nginx-selfsigned.key"
+    log "SSL certificates generated successfully ✓"
 }
 
 # Function to clean up on error

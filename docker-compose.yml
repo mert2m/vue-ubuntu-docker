@@ -24,14 +24,7 @@ services:
     networks:
       - app-network
     volumes:
-      - type: bind
-        source: ./docker/nginx/ssl/nginx-selfsigned.crt
-        target: /etc/nginx/ssl/nginx-selfsigned.crt
-        read_only: true
-      - type: bind
-        source: ./docker/nginx/ssl/nginx-selfsigned.key
-        target: /etc/nginx/ssl/nginx-selfsigned.key
-        read_only: true
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
 
 networks:
   app-network:
