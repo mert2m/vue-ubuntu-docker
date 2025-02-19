@@ -16,7 +16,7 @@ check_requirements() {
     if [[ "$(uname)" != "Linux" && "$(uname)" != "Darwin" ]]; then
         log "Error: This script is designed to run on Linux or macOS systems"
         exit 1
-    fi
+    }
 
     # Check Docker
     if ! command -v docker &> /dev/null; then
@@ -38,42 +38,70 @@ check_requirements() {
         exit 1
     fi
 
+    # Check OpenSSL
+    if ! command -v openssl &> /dev/null; then
+        log "Error: OpenSSL is not installed. Please install OpenSSL first."
+        exit 1
+    fi
+
     log "All system requirements met ✓"
 }
 
-# Function to clean up on error
+# Function to generate SSL certificates
+generate_ssl_certificates() {
+    log "Generating SSL certificates..."
+    
+    # SSL certificate directory
+    SSL_DIR="./docker/nginx/ssl"
+    
+    
+    mkdir -p $SSL_DIR
+    
+    
+    openssl req -x509 \
+        -nodes \
+        -days 365 \
+        -newkey rsa:2048 \
+        -keyout $SSL_DIR/nginx-selfsigned.key \
+        -out $SSL_DIR/nginx-selfsigned.crt \
+        -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
+    
+    
+    openssl dhparam -out $SSL_DIR/dhparam.pem 2048
+    
+    log "SSL certificates generated successfully ✓"
+}
+
+
 cleanup() {
     log "Error occurred. Cleaning up..."
     docker-compose down --remove-orphans &> /dev/null || true
     exit 1
 }
 
-# Set up error handling
+
 trap cleanup ERR
 
-# Main setup process
+
 log "Starting development environment setup..."
 
-# Check requirements
+
 check_requirements
 
-# Create necessary directories
 log "Creating project directories..."
 mkdir -p src
 
-# Stop any existing containers
+generate_ssl_certificates
+
 log "Stopping any existing containers..."
 docker-compose down --remove-orphans &> /dev/null || true
 
-# Pull latest images
 log "Pulling latest images..."
 docker-compose pull &> /dev/null || true
 
-# Build and start containers
 log "Building and starting containers..."
 docker-compose up --build -d
 
-# Verify containers are running
 log "Verifying containers..."
 if ! docker-compose ps | grep -q "Up"; then
     log "Error: Containers failed to start properly"
@@ -82,6 +110,7 @@ fi
 
 log "Setup completed successfully! ✓"
 log "You can access:"
-log "- VueJS documentation at http://localhost"
+log "- VueJS documentation at https://localhost (HTTPS)"
 log "- Development server at http://localhost:4000"
-log "- Logs can be viewed with: docker-compose logs -f" 
+log "- Logs can be viewed with: docker-compose logs -f"
+log "Note: Since we're using a self-signed certificate, you may need to accept the security warning in your browser." 

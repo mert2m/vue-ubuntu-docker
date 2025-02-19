@@ -20,10 +20,13 @@ services:
     container_name: vuejs-docs-nginx
     ports:
       - "80:80"
+      - "443:443"
     depends_on:
       - app
     networks:
       - app-network
+    volumes:
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
 
 networks:
   app-network:
