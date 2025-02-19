@@ -16,7 +16,7 @@ check_requirements() {
     if [[ "$(uname)" != "Linux" && "$(uname)" != "Darwin" ]]; then
         log "Error: This script is designed to run on Linux or macOS systems"
         exit 1
-    }
+    fi
 
     # Check Docker
     if ! command -v docker &> /dev/null; then
@@ -36,7 +36,7 @@ check_requirements() {
     if ! docker info &> /dev/null; then
         log "Error: Docker daemon is not running. Please start Docker service."
         exit 1
-    }
+    fi
 
     log "All system requirements met ✓"
 }
