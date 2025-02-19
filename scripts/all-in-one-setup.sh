@@ -8,32 +8,36 @@ log() {
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"
 }
 
+# Function to determine the correct Docker Compose command
+get_docker_compose_cmd() {
+    if command -v docker-compose &>/dev/null; then
+        echo "docker-compose"
+    elif command -v docker &>/dev/null && docker compose version &>/dev/null; then
+        echo "docker compose"
+    else
+        log "Error: Docker Compose is not installed!"
+        exit 1
+    fi
+}
+
 # Function to install Docker and Docker Compose
 install_docker() {
     log "Installing Docker and Docker Compose..."
 
-    # Update package list
     sudo apt update -y
-
-    # Install required dependencies
     sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
 
-    # Add Docker GPG key and repository
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-    # Install Docker
     sudo apt update -y
     sudo apt install -y docker-ce docker-ce-cli containerd.io
 
-    # Start and enable Docker service
     sudo systemctl start docker
     sudo systemctl enable docker
-
-    # Add current user to the Docker group (optional, avoids needing sudo)
     sudo usermod -aG docker $USER
 
-    # Install Docker Compose
+    # Install Docker Compose (latest version)
     sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
     sudo chmod +x /usr/local/bin/docker-compose
     sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
@@ -45,31 +49,26 @@ install_docker() {
 check_requirements() {
     log "Checking system requirements..."
     
-    # Check OS
     if [[ "$(uname)" != "Linux" && "$(uname)" != "Darwin" ]]; then
         log "Error: This script is designed to run on Linux or macOS systems"
         exit 1
     fi
 
-    # Check if Docker is installed
     if ! command -v docker &> /dev/null; then
         log "Docker is not installed. Installing now..."
         install_docker
     fi
 
-    # Check if Docker Compose is installed
-    if ! command -v docker compose &> /dev/null; then
+    if ! command -v docker-compose &> /dev/null && ! command -v docker &> /dev/null && ! docker compose version &> /dev/null; then
         log "Docker Compose is not installed. Installing now..."
         install_docker
     fi
 
-    # Check if Docker daemon is running
     if ! docker info &> /dev/null; then
         log "Docker daemon is not running. Starting Docker..."
         sudo systemctl start docker
     fi
 
-    # Check OpenSSL
     if ! command -v openssl &> /dev/null; then
         log "Error: OpenSSL is not installed. Installing now..."
         sudo apt update -y && sudo apt install -y openssl
@@ -82,13 +81,9 @@ check_requirements() {
 generate_ssl_certificates() {
     log "Generating SSL certificates..."
     
-    # SSL certificate directory
     SSL_DIR="./docker/nginx/ssl"
-    
-    # Create SSL directory if it doesn't exist
     mkdir -p $SSL_DIR
     
-    # Generate self-signed certificate
     openssl req -x509 \
         -nodes \
         -days 365 \
@@ -97,7 +92,6 @@ generate_ssl_certificates() {
         -out $SSL_DIR/nginx-selfsigned.crt \
         -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
     
-    # Generate strong Diffie-Hellman group
     openssl dhparam -out $SSL_DIR/dhparam.pem 2048
     
     log "SSL certificates generated successfully ✓"
@@ -106,7 +100,7 @@ generate_ssl_certificates() {
 # Function to clean up on error
 cleanup() {
     log "Error occurred. Cleaning up..."
-    docker compose down --remove-orphans &> /dev/null || true
+    $DOCKER_COMPOSE_CMD down --remove-orphans &> /dev/null || true
     exit 1
 }
 
@@ -116,24 +110,22 @@ trap cleanup ERR
 # Main setup process
 main() {
     log "Starting development environment setup..."
-
-    # Check and install requirements
     check_requirements
 
-    # Generate SSL certificates
+    # Determine which Docker Compose command to use
+    DOCKER_COMPOSE_CMD=$(get_docker_compose_cmd)
+    log "Using Docker Compose command: $DOCKER_COMPOSE_CMD"
+
     generate_ssl_certificates
 
-    # Stop any existing containers
     log "Stopping any existing containers..."
-    docker compose down --remove-orphans &> /dev/null || true
+    $DOCKER_COMPOSE_CMD down --remove-orphans &> /dev/null || true
 
-    # Build and start containers
     log "Building and starting containers..."
-    docker compose up --build -d
+    $DOCKER_COMPOSE_CMD up --build -d
 
-    # Verify containers are running
     log "Verifying containers..."
-    if ! docker compose ps | grep -q "Up"; then
+    if ! $DOCKER_COMPOSE_CMD ps | grep -q "Up"; then
         log "Error: Containers failed to start properly"
         cleanup
     fi
@@ -142,7 +134,7 @@ main() {
     log "You can access:"
     log "- VueJS documentation at https://localhost (HTTPS)"
     log "- Development server at http://localhost:4000"
-    log "- Logs can be viewed with: docker compose logs -f"
+    log "- Logs can be viewed with: $DOCKER_COMPOSE_CMD logs -f"
     log "Note: Since we're using a self-signed certificate, you may need to accept the security warning in your browser."
 }
 
