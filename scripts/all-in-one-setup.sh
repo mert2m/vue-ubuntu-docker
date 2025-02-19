@@ -1,14 +1,13 @@
 #!/bin/bash
 
-# Exit on any error
+
 set -e
 
-# Function to log messages
+
 log() {
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"
 }
 
-# Function to determine the correct Docker Compose command
 get_docker_compose_cmd() {
     if command -v docker-compose &>/dev/null; then
         echo "docker-compose"
@@ -22,7 +21,6 @@ get_docker_compose_cmd() {
 
 # Function to verify Docker permissions
 verify_docker_permissions() {
-    # Check if user is in docker group
     if ! groups | grep -q docker; then
         log "Adding user to docker group..."
         sudo usermod -aG docker $USER
@@ -45,7 +43,6 @@ verify_docker_permissions() {
     fi
 }
 
-# Function to install Docker and Docker Compose
 install_docker() {
     log "Installing Docker and Docker Compose..."
 
@@ -73,7 +70,6 @@ install_docker() {
     exit 0
 }
 
-# Function to check system requirements
 check_requirements() {
     log "Checking system requirements..."
     
@@ -92,7 +88,6 @@ check_requirements() {
         install_docker
     fi
 
-    # Verify Docker permissions
     verify_docker_permissions
 
     if ! command -v openssl &> /dev/null; then
@@ -103,20 +98,16 @@ check_requirements() {
     log "All system requirements met ✓"
 }
 
-# Function to generate SSL certificates
 generate_ssl_certificates() {
     log "Setting up SSL certificates..."
     
-    # Define SSL directory and current directory
     CURRENT_DIR=$(pwd)
     SSL_DIR="$CURRENT_DIR/../docker/nginx/ssl"
     
-    # Clean and create SSL directory
     log "Creating SSL directory..."
     rm -rf "$SSL_DIR"
     mkdir -p "$SSL_DIR"
     
-    # Generate SSL certificate and key
     log "Generating SSL certificate and key..."
     cd "$SSL_DIR"
     
@@ -128,30 +119,25 @@ generate_ssl_certificates() {
         -out nginx-selfsigned.crt \
         -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
     
-    # Verify certificate was created
     if [ ! -f "nginx-selfsigned.crt" ] || [ ! -f "nginx-selfsigned.key" ]; then
         log "Failed to generate SSL certificate files!"
         exit 1
     fi
     
-    # Set permissions
     chmod 644 nginx-selfsigned.crt
     chmod 600 nginx-selfsigned.key
     
-    # Return to original directory
     cd "$CURRENT_DIR"
     
     log "SSL certificates generated successfully ✓"
 }
 
-# Function to clean up on error
 cleanup() {
     log "Error occurred. Cleaning up..."
     $DOCKER_COMPOSE_CMD down --remove-orphans &> /dev/null || true
     exit 1
 }
 
-# Set up error handling
 trap cleanup ERR
 
 # Main setup process
@@ -186,5 +172,5 @@ main() {
     log "Note: Since we're using a self-signed certificate, you may need to accept the security warning in your browser."
 }
 
-# Run main function
+
 main

@@ -12,13 +12,15 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
+# Clone and setup Vue.js v2 documentation
 RUN git clone https://github.com/vuejs/v2.vuejs.org.git . && \
-    npm install && \
-    npm install -g hexo-cli
+    npm install
+
 
 ENV HOST=0.0.0.0
 ENV PORT=4000
 
 EXPOSE 4000
 
-CMD ["hexo", "server", "--host", "0.0.0.0", "--port", "4000"] 
+# Start the development server
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "4000"] 
